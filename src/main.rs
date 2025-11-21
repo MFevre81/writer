@@ -16,6 +16,19 @@ impl eframe::App for MyApp {
             egui::MenuBar::new().ui(ui, |ui| {
                 // Adds a menu button named "File"
                 ui.menu_button("File", |ui| {
+                    if ui.button("Open").clicked()
+                    {
+                        //To do: Implement open functionality
+                    }
+                    if ui.button("Save").clicked()
+                    {
+                        //To do: Implement save functionality
+                    }
+                    if ui.button("Save As").clicked()
+                    {
+                        //To do: Implement save as functionality
+                    }
+                    ui.separator();
                     // Adds a button in the dropdown menu
                     if ui.button("Quit").clicked() {
                         // Command to close the application
