@@ -4,6 +4,7 @@ use eframe::egui::Align;
 #[derive(Default)]
 struct MyApp {
     text: String,
+    show_about_window: bool,
 }
 
 impl eframe::App for MyApp {
@@ -19,6 +20,24 @@ impl eframe::App for MyApp {
                     if ui.button("Quit").clicked() {
                         // Command to close the application
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
+                });
+                // Add menu button named "Edit"
+                ui.menu_button("Edit", |ui| {
+                    if ui.button("Undo").clicked() {
+                        //To do: Implement undo functionality
+                    }
+                });
+                // Add menu button named "Search"
+                ui.menu_button("Search", |ui| {
+                    if ui.button("Find").clicked() {
+                        //To do: Implement find functionality
+                    }
+                });
+                // Add menu button named "Help"
+                ui.menu_button("Help", |ui| {
+                    if ui.button("About").clicked() {
+                        self.show_about_window = true;
                     }
                 });
             });
@@ -37,6 +56,26 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add_sized(ui.available_size(), egui::TextEdit::multiline(&mut self.text).frame(true));
         });
+        // About window
+        if self.show_about_window {
+            let mut close_requested = false;
+            egui::Window::new("About the App")
+                // Link the open state to the show_about_window field
+                .open(&mut self.show_about_window)
+                .resizable(false)
+                .collapsible(false)
+                .show(ctx, |ui| {
+                    ui.label("My great Egui-App");
+                    ui.label("Version: 1.0.0");
+                    ui.separator();
+                    if ui.button("OK").clicked() {
+                        close_requested = true;
+                    }
+                });
+            if close_requested {
+                self.show_about_window = false;
+            }
+        }
     }
 }
 
