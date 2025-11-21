@@ -8,6 +8,21 @@ struct MyApp {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        
+         // Menubar at the top
+        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+            // Creates the horizontal menu bar
+            egui::MenuBar::new().ui(ui, |ui| {
+                // Adds a menu button named "File"
+                ui.menu_button("File", |ui| {
+                    // Adds a button in the dropdown menu
+                    if ui.button("Quit").clicked() {
+                        // Command to close the application
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
+                });
+            });
+        });
         // status bar at the bottom
         egui::TopBottomPanel::bottom("status_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -30,6 +45,6 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "egui Windows Example",
         options,
-        Box::new(|_cc| Box::new(MyApp::default())),
+        Box::new(|_cc| Ok(Box::new(MyApp::default()))),
     )
 }
