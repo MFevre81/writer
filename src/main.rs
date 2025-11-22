@@ -6,6 +6,8 @@ struct MyApp {
     text: String,
     show_about_window: bool,
     filename: Option<String>,
+    is_dirty: bool,
+    last_saved_text: String,
 }
 
 impl eframe::App for MyApp {
@@ -21,10 +23,12 @@ impl eframe::App for MyApp {
                     {
                         if let Some(path) = rfd::FileDialog::new().pick_file() {
                             if let Ok(contents) = std::fs::read_to_string(&path) {
-                                self.text = contents;
+                                self.text = contents.clone();
+                                self.last_saved_text = contents;
                                 self.filename = path.file_name()
                                     .and_then(|n| n.to_str())
                                     .map(|s| s.to_string());
+                                self.is_dirty = false;
                             }
                         }
                     }
@@ -37,6 +41,12 @@ impl eframe::App for MyApp {
                         if let Some(path) = rfd::FileDialog::new().save_file() {
                             if let Err(e) = std::fs::write(&path, &self.text) {
                                 eprintln!("Failed to save file: {}", e);
+                            } else {
+                                self.last_saved_text = self.text.clone();
+                                self.filename = path.file_name()
+                                    .and_then(|n| n.to_str())
+                                    .map(|s| s.to_string());
+                                self.is_dirty = false;
                             }
                         }
                     }
@@ -71,7 +81,8 @@ impl eframe::App for MyApp {
         egui::TopBottomPanel::bottom("status_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 let display_name = self.filename.as_deref().unwrap_or("untitled");
-                ui.label(display_name);
+                let dirty_indicator = if self.is_dirty { "*" } else { "" };
+                ui.label(format!("{}{}", display_name, dirty_indicator));
                 ui.with_layout(egui::Layout::right_to_left(Align::LEFT), |ui| {
                     ui.label("Ready");
                 });
@@ -81,6 +92,11 @@ impl eframe::App for MyApp {
         // central area: text edit filling the remaining space
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add_sized(ui.available_size(), egui::TextEdit::multiline(&mut self.text).frame(true));
+            
+            // Check if text has been modified
+            if self.text != self.last_saved_text {
+                self.is_dirty = true;
+            }
         });
         // About window
         if self.show_about_window {
