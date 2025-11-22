@@ -263,7 +263,79 @@ impl eframe::App for MyApp {
 
         // Central area: text edit filling the remaining space
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add_sized(ui.available_size(), egui::TextEdit::multiline(&mut self.text).frame(true));
+            let find_results = self.find_results.clone();
+            let match_len = self.find_query.len();
+            let current_match_index = self.current_match_index;
+
+            let mut layouter = move |ui: &egui::Ui, string: &dyn egui::TextBuffer, wrap_width: f32| {
+                let string = string.as_str();
+                let mut layout_job = egui::text::LayoutJob::default();
+                
+                if find_results.is_empty() || match_len == 0 {
+                    layout_job.append(
+                        string,
+                        0.0,
+                        egui::TextFormat {
+                            font_id: egui::FontId::monospace(14.0),
+                            ..Default::default()
+                        },
+                    );
+                } else {
+                    let mut last_index = 0;
+                    for (i, &index) in find_results.iter().enumerate() {
+                        if index > last_index {
+                            layout_job.append(
+                                &string[last_index..index],
+                                0.0,
+                                egui::TextFormat {
+                                    font_id: egui::FontId::monospace(14.0),
+                                    ..Default::default()
+                                },
+                            );
+                        }
+                        
+                        let bg_color = if Some(i) == current_match_index {
+                            egui::Color32::from_rgb(255, 165, 0) // Orange for current
+                        } else {
+                            egui::Color32::YELLOW // Yellow for others
+                        };
+                        
+                        layout_job.append(
+                            &string[index..index + match_len],
+                            0.0,
+                            egui::TextFormat {
+                                font_id: egui::FontId::monospace(14.0),
+                                background: bg_color,
+                                color: egui::Color32::BLACK,
+                                ..Default::default()
+                            },
+                        );
+                        
+                        last_index = index + match_len;
+                    }
+                    
+                    if last_index < string.len() {
+                        layout_job.append(
+                            &string[last_index..],
+                            0.0,
+                            egui::TextFormat {
+                                font_id: egui::FontId::monospace(14.0),
+                                ..Default::default()
+                            },
+                        );
+                    }
+                }
+                
+                layout_job.wrap.max_width = wrap_width;
+                ui.painter().layout_job(layout_job)
+            };
+
+            ui.add_sized(
+                ui.available_size(),
+                egui::TextEdit::multiline(&mut self.text)
+                    .frame(true)
+                    .layouter(&mut layouter),
+            );
             
             // Check if text has been modified
             if self.text != self.last_saved_text {
