@@ -28,18 +28,18 @@ impl eframe::App for MyApp {
         let mut quit_app = false;
         
         ctx.input(|i| {
-            // Ctrl+O for Open
-            if i.modifiers.ctrl && i.key_pressed(egui::Key::O) {
+            // Cmd+O for Open (Ctrl+O on non-macOS)
+            if i.modifiers.command && i.key_pressed(egui::Key::O) {
                 open_file = true;
             }
             
-            // Ctrl+S for Save
-            if i.modifiers.ctrl && i.key_pressed(egui::Key::S) {
+            // Cmd+S for Save (Ctrl+S on non-macOS)
+            if i.modifiers.command && i.key_pressed(egui::Key::S) {
                 save_file = true;
             }
             
-            // Ctrl+Q for Quit
-            if i.modifiers.ctrl && i.key_pressed(egui::Key::Q) {
+            // Cmd+Q for Quit (Ctrl+Q on non-macOS)
+            if i.modifiers.command && i.key_pressed(egui::Key::Q) {
                 quit_app = true;
             }
         });
@@ -98,7 +98,7 @@ impl eframe::App for MyApp {
             egui::MenuBar::new().ui(ui, |ui| {
                 // Adds a menu button named "File"
                 ui.menu_button("File", |ui| {
-                    if ui.button("Open").on_hover_text("Ctrl+O").clicked()
+                    if ui.button("Open").on_hover_text("Cmd+O").clicked()
                     {
                         if let Some(path) = rfd::FileDialog::new().pick_file() {
                             if let Ok(contents) = std::fs::read_to_string(&path) {
@@ -112,7 +112,7 @@ impl eframe::App for MyApp {
                             }
                         }
                     }
-                    if ui.button("Save").on_hover_text("Ctrl+S").clicked()
+                    if ui.button("Save").on_hover_text("Cmd+S").clicked()
                     {
                         // If we have a file path, save to it; otherwise, prompt for a new file
                         if let Some(path) = &self.file_path {
@@ -155,7 +155,7 @@ impl eframe::App for MyApp {
                     }
                     ui.separator();
                     // Adds a button in the dropdown menu
-                    if ui.button("Quit").on_hover_text("Ctrl+Q").clicked() {
+                    if ui.button("Quit").on_hover_text("Cmd+Q").clicked() {
                         // Check if there are unsaved changes
                         if self.is_dirty {
                             self.show_quit_dialog = true;
