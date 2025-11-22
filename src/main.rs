@@ -26,6 +26,8 @@ struct MyApp {
     last_saved_text: String,
     show_quit_dialog: bool,
     show_open_dialog: bool,
+    show_error_dialog: bool,
+    error_message: String,
 }
 
 impl MyApp {
@@ -68,6 +70,12 @@ impl MyApp {
         self.file_path = Some(path);
         self.is_dirty = false;
         Ok(())
+    }
+    
+    /// Show an error message to the user in a dialog
+    fn show_error(&mut self, message: String) {
+        self.error_message = message;
+        self.show_error_dialog = true;
     }
 }
 
@@ -114,7 +122,7 @@ impl eframe::App for MyApp {
                 // No unsaved changes, open file picker directly
                 if let Some(path) = rfd::FileDialog::new().pick_file() {
                     if let Err(e) = self.open_file(path) {
-                        eprintln!("Failed to open file: {}", e);
+                        self.show_error(format!("Failed to open file: {}", e));
                     }
                 }
             }
@@ -125,7 +133,7 @@ impl eframe::App for MyApp {
                 // No file path, prompt for Save As
                 if let Some(path) = rfd::FileDialog::new().save_file() {
                     if let Err(e) = self.save_file_as(path) {
-                        eprintln!("Failed to save file: {}", e);
+                        self.show_error(format!("Failed to save file: {}", e));
                     }
                 }
             }
@@ -153,7 +161,7 @@ impl eframe::App for MyApp {
                             // No unsaved changes, open file picker directly
                             if let Some(path) = rfd::FileDialog::new().pick_file() {
                                 if let Err(e) = self.open_file(path) {
-                                    eprintln!("Failed to open file: {}", e);
+                                    self.show_error(format!("Failed to open file: {}", e));
                                 }
                             }
                         }
@@ -163,7 +171,7 @@ impl eframe::App for MyApp {
                             // No file path, prompt for Save As
                             if let Some(path) = rfd::FileDialog::new().save_file() {
                                 if let Err(e) = self.save_file_as(path) {
-                                    eprintln!("Failed to save file: {}", e);
+                                    self.show_error(format!("Failed to save file: {}", e));
                                 }
                             }
                         }
@@ -171,7 +179,7 @@ impl eframe::App for MyApp {
                     if ui.button("Save As").clicked() {
                         if let Some(path) = rfd::FileDialog::new().save_file() {
                             if let Err(e) = self.save_file_as(path) {
-                                eprintln!("Failed to save file: {}", e);
+                                self.show_error(format!("Failed to save file: {}", e));
                             }
                         }
                     }
@@ -279,7 +287,7 @@ impl eframe::App for MyApp {
                         // No file path, prompt for Save As
                         if let Some(path) = rfd::FileDialog::new().save_file() {
                             if let Err(e) = self.save_file_as(path) {
-                                eprintln!("Failed to save file: {}", e);
+                                self.show_error(format!("Failed to save file: {}", e));
                             } else {
                                 ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                             }
@@ -331,12 +339,12 @@ impl eframe::App for MyApp {
                         // No file path, prompt for Save As
                         if let Some(path) = rfd::FileDialog::new().save_file() {
                             if let Err(e) = self.save_file_as(path) {
-                                eprintln!("Failed to save file: {}", e);
+                                self.show_error(format!("Failed to save file: {}", e));
                             } else {
                                 // Now show file picker to open new file
                                 if let Some(path) = rfd::FileDialog::new().pick_file() {
                                     if let Err(e) = self.open_file(path) {
-                                        eprintln!("Failed to open file: {}", e);
+                                        self.show_error(format!("Failed to open file: {}", e));
                                     }
                                 }
                             }
@@ -345,7 +353,7 @@ impl eframe::App for MyApp {
                         // Save succeeded, now show file picker to open new file
                         if let Some(path) = rfd::FileDialog::new().pick_file() {
                             if let Err(e) = self.open_file(path) {
-                                eprintln!("Failed to open file: {}", e);
+                                self.show_error(format!("Failed to open file: {}", e));
                             }
                         }
                     }
@@ -355,7 +363,7 @@ impl eframe::App for MyApp {
                     // Discard changes and show file picker
                     if let Some(path) = rfd::FileDialog::new().pick_file() {
                         if let Err(e) = self.open_file(path) {
-                            eprintln!("Failed to open file: {}", e);
+                            self.show_error(format!("Failed to open file: {}", e));
                         }
                     }
                     self.show_open_dialog = false;
@@ -365,6 +373,25 @@ impl eframe::App for MyApp {
                     self.show_open_dialog = false;
                 }
                 OpenAction::None => {}
+            }
+        }
+        
+        // Error dialog
+        if self.show_error_dialog {
+            let mut close_requested = false;
+            egui::Window::new("Error")
+                .open(&mut self.show_error_dialog)
+                .resizable(false)
+                .collapsible(false)
+                .show(ctx, |ui| {
+                    ui.label(&self.error_message);
+                    ui.separator();
+                    if ui.button("OK").clicked() {
+                        close_requested = true;
+                    }
+                });
+            if close_requested {
+                self.show_error_dialog = false;
             }
         }
     }
