@@ -20,6 +20,49 @@ struct MyApp {
     show_quit_dialog: bool,
 }
 
+impl MyApp {
+    /// Open a file and load its contents into the editor
+    fn open_file(&mut self, path: std::path::PathBuf) -> Result<(), std::io::Error> {
+        let contents = std::fs::read_to_string(&path)?;
+        self.text = contents.clone();
+        self.last_saved_text = contents;
+        self.filename = path.file_name()
+            .and_then(|n| n.to_str())
+            .map(|s| s.to_string());
+        self.file_path = Some(path);
+        self.is_dirty = false;
+        Ok(())
+    }
+    
+    /// Save the current text to the existing file path
+    fn save_file(&mut self) -> Result<(), std::io::Error> {
+        if let Some(path) = &self.file_path {
+            std::fs::write(path, &self.text)?;
+            self.last_saved_text = self.text.clone();
+            self.is_dirty = false;
+            Ok(())
+        } else {
+            // No file path exists, need to use save_as
+            Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "No file path set"
+            ))
+        }
+    }
+    
+    /// Save the current text to a new file path
+    fn save_file_as(&mut self, path: std::path::PathBuf) -> Result<(), std::io::Error> {
+        std::fs::write(&path, &self.text)?;
+        self.last_saved_text = self.text.clone();
+        self.filename = path.file_name()
+            .and_then(|n| n.to_str())
+            .map(|s| s.to_string());
+        self.file_path = Some(path);
+        self.is_dirty = false;
+        Ok(())
+    }
+}
+
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Handle window close button (X)
@@ -57,38 +100,18 @@ impl eframe::App for MyApp {
         // Execute keyboard shortcut actions
         if open_file {
             if let Some(path) = rfd::FileDialog::new().pick_file() {
-                if let Ok(contents) = std::fs::read_to_string(&path) {
-                    self.text = contents.clone();
-                    self.last_saved_text = contents;
-                    self.filename = path.file_name()
-                        .and_then(|n| n.to_str())
-                        .map(|s| s.to_string());
-                    self.file_path = Some(path);
-                    self.is_dirty = false;
+                if let Err(e) = self.open_file(path) {
+                    eprintln!("Failed to open file: {}", e);
                 }
             }
         }
         
         if save_file {
-            if let Some(path) = &self.file_path {
-                if let Err(e) = std::fs::write(path, &self.text) {
-                    eprintln!("Failed to save file: {}", e);
-                } else {
-                    self.last_saved_text = self.text.clone();
-                    self.is_dirty = false;
-                }
-            } else {
+            if let Err(_) = self.save_file() {
                 // No file path, prompt for Save As
                 if let Some(path) = rfd::FileDialog::new().save_file() {
-                    if let Err(e) = std::fs::write(&path, &self.text) {
+                    if let Err(e) = self.save_file_as(path) {
                         eprintln!("Failed to save file: {}", e);
-                    } else {
-                        self.last_saved_text = self.text.clone();
-                        self.filename = path.file_name()
-                            .and_then(|n| n.to_str())
-                            .map(|s| s.to_string());
-                        self.file_path = Some(path);
-                        self.is_dirty = false;
                     }
                 }
             }
@@ -108,58 +131,27 @@ impl eframe::App for MyApp {
             egui::MenuBar::new().ui(ui, |ui| {
                 // Adds a menu button named "File"
                 ui.menu_button("File", |ui| {
-                    if ui.button("Open").on_hover_text("Cmd+O").clicked()
-                    {
+                    if ui.button("Open").on_hover_text("Cmd+O").clicked() {
                         if let Some(path) = rfd::FileDialog::new().pick_file() {
-                            if let Ok(contents) = std::fs::read_to_string(&path) {
-                                self.text = contents.clone();
-                                self.last_saved_text = contents;
-                                self.filename = path.file_name()
-                                    .and_then(|n| n.to_str())
-                                    .map(|s| s.to_string());
-                                self.file_path = Some(path);
-                                self.is_dirty = false;
+                            if let Err(e) = self.open_file(path) {
+                                eprintln!("Failed to open file: {}", e);
                             }
                         }
                     }
-                    if ui.button("Save").on_hover_text("Cmd+S").clicked()
-                    {
-                        // If we have a file path, save to it; otherwise, prompt for a new file
-                        if let Some(path) = &self.file_path {
-                            if let Err(e) = std::fs::write(path, &self.text) {
-                                eprintln!("Failed to save file: {}", e);
-                            } else {
-                                self.last_saved_text = self.text.clone();
-                                self.is_dirty = false;
-                            }
-                        } else {
+                    if ui.button("Save").on_hover_text("Cmd+S").clicked() {
+                        if let Err(_) = self.save_file() {
                             // No file path, prompt for Save As
                             if let Some(path) = rfd::FileDialog::new().save_file() {
-                                if let Err(e) = std::fs::write(&path, &self.text) {
+                                if let Err(e) = self.save_file_as(path) {
                                     eprintln!("Failed to save file: {}", e);
-                                } else {
-                                    self.last_saved_text = self.text.clone();
-                                    self.filename = path.file_name()
-                                        .and_then(|n| n.to_str())
-                                        .map(|s| s.to_string());
-                                    self.file_path = Some(path);
-                                    self.is_dirty = false;
                                 }
                             }
                         }
                     }
-                    if ui.button("Save As").clicked()
-                    {
+                    if ui.button("Save As").clicked() {
                         if let Some(path) = rfd::FileDialog::new().save_file() {
-                            if let Err(e) = std::fs::write(&path, &self.text) {
+                            if let Err(e) = self.save_file_as(path) {
                                 eprintln!("Failed to save file: {}", e);
-                            } else {
-                                self.last_saved_text = self.text.clone();
-                                self.filename = path.file_name()
-                                    .and_then(|n| n.to_str())
-                                    .map(|s| s.to_string());
-                                self.file_path = Some(path);
-                                self.is_dirty = false;
                             }
                         }
                     }
@@ -263,29 +255,17 @@ impl eframe::App for MyApp {
             match action {
                 QuitAction::Save => {
                     // Save the file
-                    if let Some(path) = &self.file_path {
-                        if let Err(e) = std::fs::write(path, &self.text) {
-                            eprintln!("Failed to save file: {}", e);
-                        } else {
-                            self.last_saved_text = self.text.clone();
-                            self.is_dirty = false;
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                        }
-                    } else {
+                    if let Err(_) = self.save_file() {
                         // No file path, prompt for Save As
                         if let Some(path) = rfd::FileDialog::new().save_file() {
-                            if let Err(e) = std::fs::write(&path, &self.text) {
+                            if let Err(e) = self.save_file_as(path) {
                                 eprintln!("Failed to save file: {}", e);
                             } else {
-                                self.last_saved_text = self.text.clone();
-                                self.filename = path.file_name()
-                                    .and_then(|n| n.to_str())
-                                    .map(|s| s.to_string());
-                                self.file_path = Some(path);
-                                self.is_dirty = false;
                                 ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                             }
                         }
+                    } else {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                     self.show_quit_dialog = false;
                 }
