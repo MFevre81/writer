@@ -1,6 +1,14 @@
 use eframe::egui;
 use eframe::egui::Align;
 
+enum QuitAction {
+    None,
+    Save,
+    DontSave,
+    Cancel,
+}
+
+
 #[derive(Default)]
 struct MyApp {
     text: String,
@@ -9,6 +17,7 @@ struct MyApp {
     file_path: Option<std::path::PathBuf>,
     is_dirty: bool,
     last_saved_text: String,
+    show_quit_dialog: bool,
 }
 
 impl eframe::App for MyApp {
@@ -78,8 +87,13 @@ impl eframe::App for MyApp {
                     ui.separator();
                     // Adds a button in the dropdown menu
                     if ui.button("Quit").clicked() {
-                        // Command to close the application
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                        // Check if there are unsaved changes
+                        if self.is_dirty {
+                            self.show_quit_dialog = true;
+                        } else {
+                            // No unsaved changes, quit immediately
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                        }
                     }
                 });
                 // Add menu button named "Edit"
@@ -141,6 +155,69 @@ impl eframe::App for MyApp {
                 });
             if close_requested {
                 self.show_about_window = false;
+            }
+        }
+        
+        // Quit confirmation dialog
+        if self.show_quit_dialog {
+            let mut action = QuitAction::None;
+            egui::Window::new("Unsaved Changes")
+                .open(&mut self.show_quit_dialog)
+                .resizable(false)
+                .collapsible(false)
+                .show(ctx, |ui| {
+                    ui.label("You have unsaved changes. Do you want to save before quitting?");
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        if ui.button("Save").clicked() {
+                            action = QuitAction::Save;
+                        }
+                        if ui.button("Don't Save").clicked() {
+                            action = QuitAction::DontSave;
+                        }
+                        if ui.button("Cancel").clicked() {
+                            action = QuitAction::Cancel;
+                        }
+                    });
+                });
+            
+            match action {
+                QuitAction::Save => {
+                    // Save the file
+                    if let Some(path) = &self.file_path {
+                        if let Err(e) = std::fs::write(path, &self.text) {
+                            eprintln!("Failed to save file: {}", e);
+                        } else {
+                            self.last_saved_text = self.text.clone();
+                            self.is_dirty = false;
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                        }
+                    } else {
+                        // No file path, prompt for Save As
+                        if let Some(path) = rfd::FileDialog::new().save_file() {
+                            if let Err(e) = std::fs::write(&path, &self.text) {
+                                eprintln!("Failed to save file: {}", e);
+                            } else {
+                                self.last_saved_text = self.text.clone();
+                                self.filename = path.file_name()
+                                    .and_then(|n| n.to_str())
+                                    .map(|s| s.to_string());
+                                self.file_path = Some(path);
+                                self.is_dirty = false;
+                                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                            }
+                        }
+                    }
+                    self.show_quit_dialog = false;
+                }
+                QuitAction::DontSave => {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    self.show_quit_dialog = false;
+                }
+                QuitAction::Cancel => {
+                    self.show_quit_dialog = false;
+                }
+                QuitAction::None => {}
             }
         }
     }
