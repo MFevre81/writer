@@ -22,6 +22,16 @@ struct MyApp {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Handle window close button (X)
+        if ctx.input(|i| i.viewport().close_requested()) {
+            if self.is_dirty {
+                // Prevent immediate close and show dialog
+                ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+                self.show_quit_dialog = true;
+            }
+            // If not dirty, allow the close to proceed naturally
+        }
+        
         // Handle keyboard shortcuts
         let mut open_file = false;
         let mut save_file = false;
