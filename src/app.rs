@@ -15,6 +15,8 @@ pub struct MyApp {
     pub show_open_dialog: bool,
     pub show_error_dialog: bool,
     pub error_message: String,
+    pub show_find_bar: bool,
+    pub find_query: String,
 }
 
 impl MyApp {
@@ -131,6 +133,11 @@ impl eframe::App for MyApp {
             if i.modifiers.command && i.key_pressed(egui::Key::Q) {
                 quit_app = true;
             }
+
+            // Cmd+F for Find (Ctrl+F on non-macOS)
+            if i.modifiers.command && i.key_pressed(egui::Key::F) {
+                self.show_find_bar = !self.show_find_bar;
+            }
         });
         
         // Execute keyboard shortcut actions
@@ -159,12 +166,36 @@ impl eframe::App for MyApp {
                     menu::MenuAction::Save => self.handle_save_action(),
                     menu::MenuAction::SaveAs => self.handle_save_as_action(),
                     menu::MenuAction::Quit => self.handle_quit_action(ctx),
+                    menu::MenuAction::Find => self.show_find_bar = !self.show_find_bar,
                     menu::MenuAction::None => {}
                 }
             });
         });
-        
-        // Status bar at the bottom
+
+        // Find Bar
+        if self.show_find_bar {
+            egui::TopBottomPanel::top("find_panel").show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Find:");
+                    let response = ui.text_edit_singleline(&mut self.find_query);
+                    if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                        // To do: Implement find next logic
+                    }
+                    
+                    if ui.button("Next").clicked() {
+                        // To do: Implement find next logic
+                    }
+                    
+                    if ui.button("Previous").clicked() {
+                        // To do: Implement find previous logic
+                    }
+                    
+                    if ui.button("Close").clicked() {
+                        self.show_find_bar = false;
+                    }
+                });
+            });
+        }
         egui::TopBottomPanel::bottom("status_bar").show(ctx, |ui| {
             status_bar::render_status_bar(ui, &self.filename, self.is_dirty);
         });
