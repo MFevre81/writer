@@ -173,6 +173,12 @@ impl eframe::App for MyApp {
         });
 
         // Find Bar
+        if self.search.show_bar {
+            egui::TopBottomPanel::top("find_panel").show(ctx, |ui| {
+                self.search.render_bar(ui, &self.text);
+            });
+        }
+
         egui::TopBottomPanel::bottom("status_bar").show(ctx, |ui| {
             status_bar::render_status_bar(ui, &self.filename, self.is_dirty);
         });
