@@ -26,20 +26,22 @@ pub fn render_about_dialog(
     }
 }
 
-/// Render the quit confirmation dialog
-pub fn render_quit_dialog(
+/// Render a generic confirmation dialog
+pub fn render_confirmation_dialog(
     ctx: &egui::Context,
-    show_quit_dialog: &mut bool,
+    show_dialog: &mut bool,
+    title: &str,
+    message: &str,
 ) -> ConfirmationAction {
     let mut action = ConfirmationAction::None;
-    
-    if *show_quit_dialog {
-        egui::Window::new("Unsaved Changes")
-            .open(show_quit_dialog)
+
+    if *show_dialog {
+        egui::Window::new(title)
+            .open(show_dialog)
             .resizable(false)
             .collapsible(false)
             .show(ctx, |ui| {
-                ui.label("You have unsaved changes. Do you want to save before quitting?");
+                ui.label(message);
                 ui.separator();
                 ui.horizontal(|ui| {
                     if ui.button("Save").clicked() {
@@ -54,8 +56,21 @@ pub fn render_quit_dialog(
                 });
             });
     }
-    
+
     action
+}
+
+/// Render the quit confirmation dialog
+pub fn render_quit_dialog(
+    ctx: &egui::Context,
+    show_quit_dialog: &mut bool,
+) -> ConfirmationAction {
+    render_confirmation_dialog(
+        ctx,
+        show_quit_dialog,
+        "Unsaved Changes",
+        "You have unsaved changes. Do you want to save before quitting?",
+    )
 }
 
 /// Render the open file confirmation dialog
@@ -63,31 +78,12 @@ pub fn render_open_dialog(
     ctx: &egui::Context,
     show_open_dialog: &mut bool,
 ) -> ConfirmationAction {
-    let mut action = ConfirmationAction::None;
-    
-    if *show_open_dialog {
-        egui::Window::new("Unsaved Changes")
-            .open(show_open_dialog)
-            .resizable(false)
-            .collapsible(false)
-            .show(ctx, |ui| {
-                ui.label("You have unsaved changes. Do you want to save before opening a new file?");
-                ui.separator();
-                ui.horizontal(|ui| {
-                    if ui.button("Save").clicked() {
-                        action = ConfirmationAction::Save;
-                    }
-                    if ui.button("Don't Save").clicked() {
-                        action = ConfirmationAction::DontSave;
-                    }
-                    if ui.button("Cancel").clicked() {
-                        action = ConfirmationAction::Cancel;
-                    }
-                });
-            });
-    }
-    
-    action
+    render_confirmation_dialog(
+        ctx,
+        show_open_dialog,
+        "Unsaved Changes",
+        "You have unsaved changes. Do you want to save before opening a new file?",
+    )
 }
 
 /// Render the error dialog
