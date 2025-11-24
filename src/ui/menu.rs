@@ -1,11 +1,13 @@
 use eframe::egui;
 
-/// Render the top menu bar with File, Edit, Search, and Help menus
+/// Render the top menu bar with File, Edit, View, Search, and Help menus
 pub fn render_menu(
     ui: &mut egui::Ui,
     show_about_window: &mut bool,
     can_undo: bool,
     can_redo: bool,
+    show_line_numbers: bool,
+    syntax_highlighting: bool,
 ) -> MenuAction {
     let mut action = MenuAction::None;
     
@@ -40,6 +42,16 @@ pub fn render_menu(
         });
     });
     
+    // Add menu button named "View"
+    ui.menu_button("View", |ui| {
+        if ui.checkbox(&mut show_line_numbers.clone(), "Line Numbers").clicked() {
+            action = MenuAction::ToggleLineNumbers;
+        }
+        if ui.checkbox(&mut syntax_highlighting.clone(), "Syntax Highlighting").clicked() {
+            action = MenuAction::ToggleSyntaxHighlighting;
+        }
+    });
+    
     // Add menu button named "Search"
     ui.menu_button("Search", |ui| {
         if ui.button("Find").on_hover_text("Cmd+F").clicked() {
@@ -67,4 +79,6 @@ pub enum MenuAction {
     Find,
     Undo,
     Redo,
+    ToggleLineNumbers,
+    ToggleSyntaxHighlighting,
 }

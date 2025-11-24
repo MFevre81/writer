@@ -4,7 +4,9 @@ use crate::file_ops;
 use crate::ui::{menu, status_bar, dialogs};
 use crate::search::SearchState;
 use crate::undo::UndoHistory;
+use crate::syntax;
 use std::time::Instant;
+use egui_code_editor::{CodeEditor, ColorTheme};
 
 pub struct MyApp {
     pub text: String,
@@ -21,6 +23,9 @@ pub struct MyApp {
     pub undo_history: UndoHistory,
     pub last_text_change: Option<Instant>,
     pub pending_undo_text: Option<String>,
+    // Code editor configuration
+    pub show_line_numbers: bool,
+    pub syntax_highlighting: bool,
 }
 
 impl Default for MyApp {
@@ -40,6 +45,9 @@ impl Default for MyApp {
             undo_history: UndoHistory::default(),
             last_text_change: None,
             pending_undo_text: None,
+            // User preferences: both off by default
+            show_line_numbers: false,
+            syntax_highlighting: false,
         }
     }
 }
@@ -156,6 +164,16 @@ impl MyApp {
             self.undo_history.push(pending);
         }
     }
+    
+    /// Toggle line numbers visibility
+    pub fn toggle_line_numbers(&mut self) {
+        self.show_line_numbers = !self.show_line_numbers;
+    }
+    
+    /// Toggle syntax highlighting
+    pub fn toggle_syntax_highlighting(&mut self) {
+        self.syntax_highlighting = !self.syntax_highlighting;
+    }
 }
 
 impl eframe::App for MyApp {
@@ -244,6 +262,8 @@ impl eframe::App for MyApp {
                     &mut self.show_about_window,
                     self.undo_history.can_undo(),
                     self.undo_history.can_redo(),
+                    self.show_line_numbers,
+                    self.syntax_highlighting,
                 );
                 
                 match action {
@@ -259,6 +279,12 @@ impl eframe::App for MyApp {
                     menu::MenuAction::Redo => {
                         self.save_undo_state();
                         self.handle_undo();  // Swapped to match keyboard shortcuts
+                    }
+                    menu::MenuAction::ToggleLineNumbers => {
+                        self.toggle_line_numbers();
+                    }
+                    menu::MenuAction::ToggleSyntaxHighlighting => {
+                        self.toggle_syntax_highlighting();
                     }
                     menu::MenuAction::None => {}
                 }
@@ -276,20 +302,24 @@ impl eframe::App for MyApp {
             status_bar::render_status_bar(ui, &self.filename, self.is_dirty);
         });
 
-        // Central area: text edit filling the remaining space
+        // Central area: code editor filling the remaining space
         let previous_text = self.text.clone();
         let last_saved_text = self.last_saved_text.clone();
         let last_text_change = self.last_text_change;
         
         egui::CentralPanel::default().show(ctx, |ui| {
-            let mut layouter = self.search.get_layouter();
-
-            ui.add_sized(
-                ui.available_size(),
-                egui::TextEdit::multiline(&mut self.text)
-                    .frame(true)
-                    .layouter(&mut layouter),
-            );
+            // TODO: Reimplement search highlighting for CodeEditor
+            // For now, search will work but without visual highlighting
+            
+            CodeEditor::default()
+                .id_source("main_editor")
+                .with_rows(50)  // High minimum row count
+                .with_fontsize(14.0)
+                .with_theme(ColorTheme::GRUVBOX)
+                .with_syntax(syntax::get_syntax_for_file(self.filename.as_ref(), self.syntax_highlighting))
+                .with_numlines(self.show_line_numbers)
+                .vscroll(true)
+                .show(ui, &mut self.text);
         });
         
         // Check if text has been modified (after the central panel)
