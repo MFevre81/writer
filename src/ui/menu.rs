@@ -13,6 +13,9 @@ pub fn render_menu(
     
     // Adds a menu button named "File"
     ui.menu_button("File", |ui| {
+        if ui.button("New").on_hover_text("Ctrl+N").clicked() {
+            action = MenuAction::New;
+        }
         if ui.button("Open").on_hover_text("Cmd+O").clicked() {
             action = MenuAction::Open;
         }
@@ -72,6 +75,7 @@ pub fn render_menu(
 /// Actions that can be triggered from the menu
 pub enum MenuAction {
     None,
+    New,
     Open,
     Save,
     SaveAs,

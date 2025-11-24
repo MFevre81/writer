@@ -16,6 +16,7 @@ pub struct MyApp {
     pub is_dirty: bool,
     pub last_saved_text: String,
     pub show_quit_dialog: bool,
+    pub show_new_dialog: bool,
     pub show_open_dialog: bool,
     pub show_error_dialog: bool,
     pub error_message: String,
@@ -38,6 +39,7 @@ impl Default for MyApp {
             is_dirty: false,
             last_saved_text: String::new(),
             show_quit_dialog: false,
+            show_new_dialog: false,
             show_open_dialog: false,
             show_error_dialog: false,
             error_message: String::new(),
@@ -94,10 +96,31 @@ impl MyApp {
         Ok(())
     }
     
+    /// Create a new file (clear current content)
+    pub fn new_file(&mut self) {
+        self.text.clear();
+        self.filename = None;
+        self.file_path = None;
+        self.is_dirty = false;
+        self.last_saved_text.clear();
+        self.undo_history.clear();
+        self.last_text_change = None;
+        self.pending_undo_text = None;
+    }
+    
     /// Show an error message to the user in a dialog
     pub fn show_error(&mut self, message: String) {
         self.error_message = message;
         self.show_error_dialog = true;
+    }
+    
+    /// Handle new file action with proper save confirmation
+    fn handle_new_action(&mut self) {
+        if self.is_dirty {
+            self.show_new_dialog = true;
+        } else {
+            self.new_file();
+        }
     }
     
     /// Handle file open action with proper save confirmation
@@ -187,41 +210,47 @@ impl eframe::App for MyApp {
             }
             // If not dirty, allow the close to proceed naturally
         
-        // Handle keyboard shortcuts
+        // Keyboard shortcuts
+        let mut undo = false;
+        let mut redo = false;
+        let mut toggle_find = false;
+        let mut new_file = false;
         let mut open_file = false;
         let mut save_file = false;
         let mut quit_app = false;
-        let mut toggle_find = false;
-        let mut undo = false;
-        let mut redo = false;
         
         ctx.input(|i| {
-            // Cmd+O for Open (Ctrl+O on non-macOS)
+            // Ctrl+N - New file
+            if i.modifiers.command && i.key_pressed(egui::Key::N) {
+                new_file = true;
+            }
+            
+            // Ctrl+O - Open file
             if i.modifiers.command && i.key_pressed(egui::Key::O) {
                 open_file = true;
             }
             
-            // Cmd+S for Save (Ctrl+S on non-macOS)
+            // Ctrl+S - Save file
             if i.modifiers.command && i.key_pressed(egui::Key::S) {
                 save_file = true;
             }
             
-            // Cmd+Q for Quit (Ctrl+Q on non-macOS)
+            // Ctrl+Q - Quit
             if i.modifiers.command && i.key_pressed(egui::Key::Q) {
                 quit_app = true;
             }
 
-            // Cmd+F for Find (Ctrl+F on non-macOS)
+            // Ctrl+F - Find
             if i.modifiers.command && i.key_pressed(egui::Key::F) {
                 toggle_find = true;
             }
             
-            // Cmd+Z for Undo (Ctrl+Z on non-macOS)
+            // Ctrl+Z - Undo
             if i.modifiers.command && !i.modifiers.shift && i.key_pressed(egui::Key::Z) {
                 undo = true;
             }
             
-            // Cmd+Y or Cmd+Shift+Z for Redo (Ctrl+Y or Ctrl+Shift+Z on non-macOS)
+            // Ctrl+Y or Ctrl+Shift+Z - Redo
             if i.modifiers.command && (i.key_pressed(egui::Key::Y) || (i.modifiers.shift && i.key_pressed(egui::Key::Z))) {
                 redo = true;
             }
@@ -240,6 +269,10 @@ impl eframe::App for MyApp {
         
         if toggle_find {
             self.search.show_bar = !self.search.show_bar;
+        }
+        
+        if new_file {
+            self.handle_new_action();
         }
         
         if open_file {
@@ -267,6 +300,7 @@ impl eframe::App for MyApp {
                 );
                 
                 match action {
+                    menu::MenuAction::New => self.handle_new_action(),
                     menu::MenuAction::Open => self.handle_open_action(),
                     menu::MenuAction::Save => self.handle_save_action(),
                     menu::MenuAction::SaveAs => self.handle_save_as_action(),
@@ -416,6 +450,33 @@ impl eframe::App for MyApp {
             }
             ConfirmationAction::Cancel => {
                 self.show_open_dialog = false;
+            }
+            ConfirmationAction::None => {}
+        }
+        
+        // New file confirmation dialog
+        let new_action = dialogs::render_new_dialog(ctx, &mut self.show_new_dialog);
+        match new_action {
+            ConfirmationAction::Save => {
+                if self.save_file().is_err() {
+                    if let Some(path) = rfd::FileDialog::new().save_file() {
+                        if let Err(e) = self.save_file_as(path) {
+                            self.show_error(format!("Failed to save file: {}", e));
+                        } else {
+                            self.new_file();
+                        }
+                    }
+                } else {
+                    self.new_file();
+                }
+                self.show_new_dialog = false;
+            }
+            ConfirmationAction::DontSave => {
+                self.show_new_dialog = false;
+                self.new_file();
+            }
+            ConfirmationAction::Cancel => {
+                self.show_new_dialog = false;
             }
             ConfirmationAction::None => {}
         }
