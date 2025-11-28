@@ -27,6 +27,9 @@ pub struct MyApp {
     // Code editor configuration
     pub show_line_numbers: bool,
     pub syntax_highlighting: bool,
+    pub show_goto_line_dialog: bool,
+    pub goto_line_input: String,
+    pub scroll_to_line: Option<usize>,
 }
 
 impl Default for MyApp {
@@ -50,6 +53,9 @@ impl Default for MyApp {
             // User preferences: both off by default
             show_line_numbers: false,
             syntax_highlighting: false,
+            show_goto_line_dialog: false,
+            goto_line_input: String::new(),
+            scroll_to_line: None,
         }
     }
 }
@@ -254,6 +260,12 @@ impl eframe::App for MyApp {
             if i.modifiers.command && (i.key_pressed(egui::Key::Y) || (i.modifiers.shift && i.key_pressed(egui::Key::Z))) {
                 redo = true;
             }
+
+            // Ctrl+G - Go to Line
+            if i.modifiers.command && i.key_pressed(egui::Key::G) {
+                self.show_goto_line_dialog = true;
+                self.goto_line_input.clear();
+            }
         });
         
         // Execute keyboard shortcut actions
@@ -320,6 +332,10 @@ impl eframe::App for MyApp {
                     menu::MenuAction::ToggleSyntaxHighlighting => {
                         self.toggle_syntax_highlighting();
                     }
+                    menu::MenuAction::GoToLine => {
+                        self.show_goto_line_dialog = true;
+                        self.goto_line_input.clear();
+                    }
                     menu::MenuAction::None => {}
                 }
             });
@@ -353,15 +369,31 @@ impl eframe::App for MyApp {
             // TODO: Reimplement search highlighting for CodeEditor
             // For now, search will work but without visual highlighting
             
-            CodeEditor::default()
-                .id_source("main_editor")
-                .with_rows(50)  // High minimum row count
-                .with_fontsize(14.0)
-                .with_theme(ColorTheme::GITHUB_DARK)
-                .with_syntax(syntax::get_syntax_for_file(self.filename.as_ref(), self.syntax_highlighting))
-                .with_numlines(self.show_line_numbers)
-                .vscroll(true)
-                .show(ui, &mut self.text);
+            let row_height = ui.text_style_height(&egui::TextStyle::Monospace);
+            
+            egui::ScrollArea::vertical()
+                .id_salt("editor_scroll")
+                .show(ui, |ui| {
+                    if let Some(line) = self.scroll_to_line.take() {
+                        ui.scroll_to_rect(
+                            egui::Rect::from_min_size(
+                                egui::pos2(0.0, line as f32 * row_height),
+                                egui::vec2(0.0, row_height)
+                            ),
+                            Some(egui::Align::Center)
+                        );
+                    }
+                    
+                    CodeEditor::default()
+                        .id_source("main_editor")
+                        .with_rows(50)  // High minimum row count
+                        .with_fontsize(14.0)
+                        .with_theme(ColorTheme::GITHUB_DARK)
+                        .with_syntax(syntax::get_syntax_for_file(self.filename.as_ref(), self.syntax_highlighting))
+                        .with_numlines(self.show_line_numbers)
+                        .vscroll(false) // Disable internal scrolling to let ScrollArea handle it
+                        .show(ui, &mut self.text);
+                });
         });
         
         // Check if text has been modified (after the central panel)
@@ -489,6 +521,16 @@ impl eframe::App for MyApp {
             ConfirmationAction::None => {}
         }
         
+        // Go to Line dialog
+        if let Some(target_line) = dialogs::render_goto_line_dialog(ctx, &mut self.show_goto_line_dialog, &mut self.goto_line_input) {
+            // Calculate character index for the target line
+            // Lines are 1-indexed for user, 0-indexed internally
+            if target_line > 0 {
+                let line_idx = target_line - 1;
+                self.scroll_to_line = Some(line_idx);
+            }
+        }
+
         // Error dialog
         dialogs::render_error_dialog(ctx, &mut self.show_error_dialog, &self.error_message);
     }
