@@ -30,6 +30,7 @@ pub struct MyApp {
     pub show_goto_line_dialog: bool,
     pub goto_line_input: String,
     pub scroll_to_line: Option<usize>,
+    pub suppress_undo_save: bool,
 }
 
 impl Default for MyApp {
@@ -56,6 +57,7 @@ impl Default for MyApp {
             show_goto_line_dialog: false,
             goto_line_input: String::new(),
             scroll_to_line: None,
+            suppress_undo_save: false,
         }
     }
 }
@@ -73,6 +75,7 @@ impl MyApp {
         self.undo_history.clear();
         self.last_text_change = None;
         self.pending_undo_text = None;
+        self.suppress_undo_save = true;
         Ok(())
     }
     
@@ -112,6 +115,7 @@ impl MyApp {
         self.undo_history.clear();
         self.last_text_change = None;
         self.pending_undo_text = None;
+        self.suppress_undo_save = true;
     }
     
     /// Show an error message to the user in a dialog
@@ -189,7 +193,16 @@ impl MyApp {
     
     /// Save current text to undo history with debouncing
     pub fn save_undo_state(&mut self) {
+        if self.suppress_undo_save {
+            return;
+        }
         if let Some(pending) = self.pending_undo_text.take() {
+            // Don't push if it's identical to the last state
+            if let Some(last) = self.undo_history.peek_undo() {
+                if last == &pending {
+                    return;
+                }
+            }
             self.undo_history.push(pending);
         }
     }
@@ -378,7 +391,11 @@ impl eframe::App for MyApp {
             // TODO: Reimplement search highlighting for CodeEditor
             // For now, search will work but without visual highlighting
             
-            let row_height = ui.text_style_height(&egui::TextStyle::Monospace);
+            let row_height = ui.painter().layout_no_wrap(
+                "A".to_string(),
+                egui::FontId::monospace(14.0),
+                egui::Color32::TRANSPARENT
+            ).size().y;
             
             egui::ScrollArea::vertical()
                 .id_salt("editor_scroll")
@@ -408,6 +425,11 @@ impl eframe::App for MyApp {
         // Check if text has been modified (after the central panel)
         if self.text != last_saved_text {
             self.is_dirty = true;
+        }
+        
+        // Reset suppress flag after first frame
+        if self.suppress_undo_save {
+            self.suppress_undo_save = false;
         }
         
         // Handle text changes for undo history with debouncing
